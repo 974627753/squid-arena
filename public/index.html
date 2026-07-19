@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARÈNE 456</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- ===== ÉCRAN CONNEXION ===== -->
+<section id="screen-auth" class="screen active">
+  <div class="auth-card">
+    <div class="brand">
+      <span class="brand-shape brand-circle"></span>
+      <h1>ARÈNE <span class="brand-num">456</span></h1>
+    </div>
+    <p class="tagline">Survis. Progresse. Ne deviens pas un numéro de plus.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">Connexion</button>
+      <button class="tab-btn" data-tab="register">Inscription</button>
+    </div>
+
+    <form id="form-login" class="auth-form active">
+      <label>Pseudo
+        <input type="text" id="login-username" autocomplete="username" required>
+      </label>
+      <label>Mot de passe
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn-primary">Entrer dans l'arène</button>
+      <p class="form-error" id="login-error"></p>
+    </form>
+
+    <form id="form-register" class="auth-form">
+      <label>Choisis ton pseudo
+        <input type="text" id="register-username" minlength="3" maxlength="20" required>
+      </label>
+      <label>Mot de passe <span class="hint">(6 caractères min.)</span>
+        <input type="password" id="register-password" minlength="6" required>
+      </label>
+      <button type="submit" class="btn-primary">Rejoindre le jeu</button>
+      <p class="form-error" id="register-error"></p>
+    </form>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN MENU PRINCIPAL ===== -->
+<section id="screen-menu" class="screen">
+  <header class="topbar">
+    <div class="brand small">
+      <span class="brand-shape brand-triangle"></span>
+      <h1>ARÈNE <span class="brand-num">456</span></h1>
+    </div>
+    <div class="user-chip">
+      <span id="user-display-name">Joueur</span>
+      <button id="btn-logout" class="btn-ghost">Quitter</button>
+    </div>
+  </header>
+
+  <div class="menu-grid">
+    <button class="menu-tile tile-ai" data-view="game-select">
+      <span class="tile-shape shape-circle"></span>
+      <h2>Jouer contre l'IA</h2>
+      <p>Affronte la Machine, seul face à ses règles.</p>
+    </button>
+
+    <button class="menu-tile tile-multi" data-view="multi-select">
+      <span class="tile-shape shape-square"></span>
+      <h2>Multijoueur</h2>
+      <p>Défie d'autres joueurs, en équipe ou face à eux.</p>
+    </button>
+  </div>
+
+  <div class="stats-strip" id="stats-strip">
+    <div><span class="stat-label">Parties jouées</span><span class="stat-value" id="stat-games">0</span></div>
+    <div><span class="stat-label">Victoires</span><span class="stat-value" id="stat-wins">0</span></div>
+    <div><span class="stat-label">Meilleur temps</span><span class="stat-value" id="stat-besttime">—</span></div>
+  </div>
+</section>
+
+<!-- ===== SOUS-MENU : CHOIX DU JEU VS IA ===== -->
+<section id="screen-game-select" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-menu">← Retour</button>
+    <h2>Choisis une épreuve</h2>
+  </header>
+  <div class="menu-grid">
+    <button class="menu-tile tile-available" data-start="redlight">
+      <span class="tile-shape shape-circle pulse"></span>
+      <h2>1, 2, 3 Soleil</h2>
+      <p>Avance au feu vert. Fige-toi au feu rouge. La Machine te surveille.</p>
+    </button>
+    <button class="menu-tile tile-locked" disabled>
+      <span class="tile-shape shape-square"></span>
+      <h2>Tir à la corde</h2>
+      <p class="locked-tag">Bientôt disponible</p>
+    </button>
+    <button class="menu-tile tile-locked" disabled>
+      <span class="tile-shape shape-triangle"></span>
+      <h2>Bille (duel 1v1)</h2>
+      <p class="locked-tag">Bientôt disponible</p>
+    </button>
+  </div>
+</section>
+
+<!-- ===== SOUS-MENU : MULTIJOUEUR (AMIS / EN LIGNE) ===== -->
+<section id="screen-multi-select" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-menu">← Retour</button>
+    <h2>Multijoueur</h2>
+  </header>
+  <div class="menu-grid">
+    <button class="menu-tile tile-locked" disabled>
+      <span class="tile-shape shape-square"></span>
+      <h2>Entre amis</h2>
+      <p class="locked-tag">Bientôt disponible — arrive à l'étape 2</p>
+    </button>
+    <button class="menu-tile tile-locked" disabled>
+      <span class="tile-shape shape-triangle"></span>
+      <h2>En ligne</h2>
+      <p class="locked-tag">Bientôt disponible — arrive à l'étape 2</p>
+    </button>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN JEU : 1,2,3 SOLEIL ===== -->
+<section id="screen-redlight" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-game-select" id="rl-quit">← Abandonner</button>
+    <div class="rl-timer">Temps : <span id="rl-time">60.0</span>s</div>
+  </header>
+
+  <div class="rl-arena">
+    <div class="rl-light-indicator" id="rl-light">
+      <span class="light-dot" id="light-dot"></span>
+      <span class="light-label" id="light-label">FEU VERT</span>
+    </div>
+
+    <canvas id="rl-canvas" width="900" height="500"></canvas>
+
+    <div class="rl-controls">
+      <button id="rl-move-btn" class="btn-hold">MAINTIENS POUR AVANCER</button>
+      <p class="rl-hint">(ou maintiens la barre <kbd>ESPACE</kbd>)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN FIN DE PARTIE ===== -->
+<section id="screen-result" class="screen">
+  <div class="result-card">
+    <h1 id="result-title">—</h1>
+    <p id="result-subtitle"></p>
+    <button class="btn-primary" id="result-retry">Réessayer</button>
+    <button class="btn-ghost" data-back="screen-menu">Retour au menu</button>
+  </div>
+</section>
+
+<script src="js/app.js"></script>
+<script src="js/game-redlight.js"></script>
+</body>
+</html>

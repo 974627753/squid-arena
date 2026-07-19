@@ -81,4 +81,3 @@ Une fois ce socle testé et validé :
 1. Brancher Socket.io pour le multijoueur **"Entre amis"** (création de salon avec code à partager).
 2. Ajouter le mode **"En ligne"** (matchmaking automatique).
 3. Synchroniser plusieurs joueurs en temps réel sur la même partie de "1, 2, 3 Soleil" (ou un nouveau mini-jeu compétitif).
-"# squid-arena" 

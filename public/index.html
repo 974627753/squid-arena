@@ -121,10 +121,10 @@
       <h2>Entre amis</h2>
       <p class="locked-tag">Bientôt disponible — arrive à l'étape 2</p>
     </button>
-    <button class="menu-tile tile-locked" disabled>
+    <button class="menu-tile tile-available" id="btn-online-redlight">
       <span class="tile-shape shape-triangle"></span>
       <h2>En ligne</h2>
-      <p class="locked-tag">Bientôt disponible — arrive à l'étape 2</p>
+      <p>Affronte d'autres joueurs connectés en ce moment sur "1, 2, 3 Soleil".</p>
     </button>
   </div>
 </section>
@@ -151,6 +151,52 @@
   </div>
 </section>
 
+<!-- ===== ÉCRAN RECHERCHE DE PARTIE (MULTIJOUEUR EN LIGNE) ===== -->
+<section id="screen-mp-queue" class="screen">
+  <div class="result-card">
+    <h1>Recherche d'adversaires…</h1>
+    <p id="mp-queue-status">Connexion en cours…</p>
+    <div class="rl-light-indicator" style="margin: 0 auto 24px;">
+      <span class="light-dot pulse-search"></span>
+      <span class="light-label" id="mp-queue-count">0 joueur en attente</span>
+    </div>
+    <button class="btn-ghost" id="mp-queue-cancel">Annuler la recherche</button>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN JEU : 1,2,3 SOLEIL MULTIJOUEUR ===== -->
+<section id="screen-mp-redlight" class="screen">
+  <header class="topbar">
+    <span></span>
+    <div class="rl-timer">Temps : <span id="mp-rl-time">60.0</span>s</div>
+  </header>
+
+  <div class="rl-arena">
+    <div class="rl-light-indicator" id="mp-rl-light">
+      <span class="light-dot" id="mp-light-dot"></span>
+      <span class="light-label" id="mp-light-label">FEU VERT</span>
+    </div>
+
+    <canvas id="mp-rl-canvas" width="900" height="500"></canvas>
+
+    <div class="rl-controls">
+      <button id="mp-rl-move-btn" class="btn-hold">MAINTIENS POUR AVANCER</button>
+      <p class="rl-hint">(ou maintiens la barre <kbd>ESPACE</kbd>)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN FIN DE PARTIE MULTIJOUEUR ===== -->
+<section id="screen-mp-result" class="screen">
+  <div class="result-card">
+    <h1 id="mp-result-title">—</h1>
+    <p id="mp-result-subtitle"></p>
+    <div id="mp-result-list" class="mp-result-list"></div>
+    <button class="btn-primary" id="mp-result-retry">Rejouer</button>
+    <button class="btn-ghost" data-back="screen-menu">Retour au menu</button>
+  </div>
+</section>
+
 <!-- ===== ÉCRAN FIN DE PARTIE ===== -->
 <section id="screen-result" class="screen">
   <div class="result-card">
@@ -161,7 +207,9 @@
   </div>
 </section>
 
+<script src="/socket.io/socket.io.js"></script>
 <script src="js/app.js"></script>
 <script src="js/game-redlight.js"></script>
+<script src="js/multiplayer-redlight.js"></script>
 </body>
 </html>

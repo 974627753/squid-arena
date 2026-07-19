@@ -1,8 +1,22 @@
 // ===== ÉTAT GLOBAL =====
 const AppState = {
   token: localStorage.getItem('arena_token') || null,
-  user: null
+  user: null,
+  socket: null
 };
+
+function connectSocket() {
+  if (AppState.socket) AppState.socket.disconnect();
+  AppState.socket = io({ auth: { token: AppState.token } });
+  return AppState.socket;
+}
+
+function disconnectSocket() {
+  if (AppState.socket) {
+    AppState.socket.disconnect();
+    AppState.socket = null;
+  }
+}
 
 function apiFetch(path, options = {}) {
   const headers = options.headers || {};
@@ -80,6 +94,7 @@ function onAuthSuccess(data) {
   AppState.user = data.user;
   localStorage.setItem('arena_token', data.token);
   renderUser();
+  connectSocket();
   showScreen('screen-menu');
 }
 
@@ -95,6 +110,7 @@ function renderUser() {
 
 // ===== DÉCONNEXION =====
 document.getElementById('btn-logout').addEventListener('click', () => {
+  disconnectSocket();
   AppState.token = null;
   AppState.user = null;
   localStorage.removeItem('arena_token');
@@ -111,6 +127,7 @@ document.getElementById('btn-logout').addEventListener('click', () => {
     const data = await apiFetch('/auth/me');
     AppState.user = data.user;
     renderUser();
+    connectSocket();
     showScreen('screen-menu');
   } catch (err) {
     localStorage.removeItem('arena_token');

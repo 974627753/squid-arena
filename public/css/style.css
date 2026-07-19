@@ -263,6 +263,33 @@ kbd {
 .result-card .btn-primary { width: 100%; margin-bottom: 12px; }
 .result-card .btn-ghost { width: 100%; }
 
+/* ===== MULTIJOUEUR ===== */
+.pulse-search {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent-jade); box-shadow: 0 0 12px var(--accent-jade);
+  animation: pulseGlow 1s ease-in-out infinite;
+}
+
+.mp-result-list {
+  text-align: left; margin: 0 0 24px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.mp-result-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg-panel-raised); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 14px; font-size: 13.5px;
+}
+.mp-result-row.is-winner { border-color: var(--accent-jade); }
+.mp-result-row .mp-name { font-family: var(--font-display); font-weight: 600; }
+.mp-result-row .mp-outcome { color: var(--text-muted); font-size: 12px; }
+.mp-result-row.is-winner .mp-outcome { color: var(--accent-jade); }
+
+.mp-player-tag {
+  position: absolute; transform: translate(-50%, -140%);
+  font-family: var(--font-display); font-size: 11px; color: var(--text-muted);
+  white-space: nowrap;
+}
+
 @media (max-width: 600px) {
   .menu-grid { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }

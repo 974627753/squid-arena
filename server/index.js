@@ -4,10 +4,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
+const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
+const OnlineRedLightManager = require('./game/onlineRedLight');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,14 +30,33 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mongoConnected: mongoose.connection.readyState === 1 });
 });
 
-// --- Socket.io : scaffold pour le multijoueur (Phase 2) ---
-// Pour l'instant, on garde juste une connexion de base prête.
-// Les rooms "amis" et "en ligne" seront branchées ici à l'étape suivante.
+// --- Socket.io : authentification puis dispatch vers les modules de jeu ---
+const onlineRedLight = new OnlineRedLightManager(io);
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Authentification requise'));
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return next(new Error('Token invalide'));
+    socket.userId = decoded.userId;
+    socket.username = decoded.username;
+    next();
+  });
+});
+
 io.on('connection', (socket) => {
-  console.log(`Socket connecté: ${socket.id}`);
+  console.log(`Socket connecté: ${socket.username} (${socket.id})`);
+
+  // --- Matchmaking "1,2,3 Soleil" en ligne ---
+  socket.on('redlight:queue:join', () => onlineRedLight.joinQueue(socket));
+  socket.on('redlight:queue:leave', () => onlineRedLight.leaveQueue(socket));
+  socket.on('redlight:move', ({ matchId, isMoving }) => {
+    onlineRedLight.setMoving(socket, matchId, isMoving);
+  });
 
   socket.on('disconnect', () => {
-    console.log(`Socket déconnecté: ${socket.id}`);
+    console.log(`Socket déconnecté: ${socket.username} (${socket.id})`);
+    onlineRedLight.handleDisconnect(socket);
   });
 });
 

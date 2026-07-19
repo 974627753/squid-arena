@@ -290,6 +290,26 @@ kbd {
   white-space: nowrap;
 }
 
+.join-room-form { display: flex; gap: 8px; margin-top: 14px; }
+.join-room-form input {
+  flex: 1; background: var(--bg-panel-raised); border: 1px solid var(--line);
+  border-radius: 8px; padding: 11px 12px; color: var(--text-main);
+  font-family: var(--font-display); font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; text-align: center; outline: none;
+}
+.join-room-form input:focus { border-color: var(--accent-jade); }
+.join-room-form .btn-primary { padding: 0 18px; margin-top: 0; }
+
+.friend-card { text-align: left; cursor: default; }
+.friend-card:hover { transform: none; border-color: var(--line); }
+.friend-stats { display: flex; gap: 16px; margin-top: 10px; }
+.friend-stats span { font-size: 12px; color: var(--text-muted); }
+.friend-stats b { color: var(--accent-jade); font-family: var(--font-display); }
+.btn-remove-friend {
+  margin-top: 12px; background: none; border: 1px solid var(--line); color: var(--accent-vermilion);
+  border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+}
+
 @media (max-width: 600px) {
   .menu-grid { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }

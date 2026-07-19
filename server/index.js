@@ -9,7 +9,9 @@ const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
+const friendsRoutes = require('./routes/friends');
 const OnlineRedLightManager = require('./game/onlineRedLight');
+const FriendRoomManager = require('./game/friendRooms');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,6 +27,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // --- Routes API ---
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/friends', friendsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mongoConnected: mongoose.connection.readyState === 1 });
@@ -32,6 +35,7 @@ app.get('/api/health', (req, res) => {
 
 // --- Socket.io : authentification puis dispatch vers les modules de jeu ---
 const onlineRedLight = new OnlineRedLightManager(io);
+const friendRooms = new FriendRoomManager(io);
 
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
@@ -47,16 +51,27 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log(`Socket connecté: ${socket.username} (${socket.id})`);
 
-  // --- Matchmaking "1,2,3 Soleil" en ligne ---
+  // --- Matchmaking "1,2,3 Soleil" en ligne (public) ---
   socket.on('redlight:queue:join', () => onlineRedLight.joinQueue(socket));
   socket.on('redlight:queue:leave', () => onlineRedLight.leaveQueue(socket));
   socket.on('redlight:move', ({ matchId, isMoving }) => {
-    onlineRedLight.setMoving(socket, matchId, isMoving);
+    if (typeof matchId === 'string' && matchId.startsWith('friend-')) {
+      friendRooms.setMoving(socket, matchId.replace('friend-', ''), isMoving);
+    } else {
+      onlineRedLight.setMoving(socket, matchId, isMoving);
+    }
   });
+
+  // --- Salons privés "Entre amis" ---
+  socket.on('friend:room:create', () => friendRooms.createRoom(socket));
+  socket.on('friend:room:join', ({ code }) => friendRooms.joinRoom(socket, (code || '').toUpperCase()));
+  socket.on('friend:room:leave', () => friendRooms.leaveRoom(socket));
+  socket.on('friend:room:start', ({ code }) => friendRooms.startRoom(socket, (code || '').toUpperCase()));
 
   socket.on('disconnect', () => {
     console.log(`Socket déconnecté: ${socket.username} (${socket.id})`);
     onlineRedLight.handleDisconnect(socket);
+    friendRooms.handleDisconnect(socket);
   });
 });
 

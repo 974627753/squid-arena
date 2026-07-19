@@ -31,6 +31,25 @@ router.post('/redlight/result', authMiddleware, async (req, res) => {
   }
 });
 
+// --- Enregistrer le résultat d'une partie pour n'importe quel mini-jeu (générique) ---
+router.post('/result', authMiddleware, async (req, res) => {
+  try {
+    const { won } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+
+    user.stats.gamesPlayed += 1;
+    if (won) user.stats.wins += 1;
+    await user.save();
+
+    res.json({ stats: user.stats });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 // --- Classement des meilleurs temps ---
 router.get('/leaderboard', async (req, res) => {
   try {

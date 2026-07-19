@@ -118,6 +118,10 @@ document.getElementById('btn-logout').addEventListener('click', () => {
 });
 
 // ===== AU CHARGEMENT : essayer de restaurer la session =====
+document.getElementById('result-retry').addEventListener('click', () => {
+  if (window.currentRetryHandler) window.currentRetryHandler();
+});
+
 (async function init() {
   if (!AppState.token) {
     showScreen('screen-auth');

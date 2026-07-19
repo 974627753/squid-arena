@@ -151,7 +151,8 @@
       subEl.textContent = reasonText || '';
     }
 
-    showScreen('screen-result');
+    window.currentRetryHandler = startGame;
+  showScreen('screen-result');
 
     try {
       const data = await apiFetch('/game/redlight/result', {
@@ -202,9 +203,5 @@
   // ===== LANCEMENT DEPUIS LE MENU =====
   document.querySelectorAll('[data-start="redlight"]').forEach((btn) => {
     btn.addEventListener('click', startGame);
-  });
-  document.getElementById('result-retry').addEventListener('click', () => {
-    // Si on relance, on regarde quel jeu était en cours (pour l'instant un seul dispo)
-    startGame();
   });
 })();

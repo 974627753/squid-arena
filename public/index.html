@@ -58,6 +58,7 @@
       <h1>ARÈNE <span class="brand-num">456</span></h1>
     </div>
     <div class="user-chip">
+      <button id="btn-open-friends" class="btn-ghost">👥 Amis</button>
       <span id="user-display-name">Joueur</span>
       <button id="btn-logout" class="btn-ghost">Quitter</button>
     </div>
@@ -96,15 +97,15 @@
       <h2>1, 2, 3 Soleil</h2>
       <p>Avance au feu vert. Fige-toi au feu rouge. La Machine te surveille.</p>
     </button>
-    <button class="menu-tile tile-locked" disabled>
+    <button class="menu-tile tile-available" data-start="tugofwar">
       <span class="tile-shape shape-square"></span>
       <h2>Tir à la corde</h2>
-      <p class="locked-tag">Bientôt disponible</p>
+      <p>Martèle le bouton plus vite que la Machine pour tirer la corde de ton côté.</p>
     </button>
-    <button class="menu-tile tile-locked" disabled>
+    <button class="menu-tile tile-available" data-start="marble">
       <span class="tile-shape shape-triangle"></span>
       <h2>Bille (duel 1v1)</h2>
-      <p class="locked-tag">Bientôt disponible</p>
+      <p>Vise avec précision : stoppe la jauge dans la zone pour marquer le point.</p>
     </button>
   </div>
 </section>
@@ -116,10 +117,10 @@
     <h2>Multijoueur</h2>
   </header>
   <div class="menu-grid">
-    <button class="menu-tile tile-locked" disabled>
+    <button class="menu-tile tile-available" id="btn-friend-room">
       <span class="tile-shape shape-square"></span>
       <h2>Entre amis</h2>
-      <p class="locked-tag">Bientôt disponible — arrive à l'étape 2</p>
+      <p>Crée un salon privé ou rejoins celui d'un ami avec un code.</p>
     </button>
     <button class="menu-tile tile-available" id="btn-online-redlight">
       <span class="tile-shape shape-triangle"></span>
@@ -197,6 +198,88 @@
   </div>
 </section>
 
+<!-- ===== ÉCRAN JEU : TIR À LA CORDE (VS IA) ===== -->
+<section id="screen-tugofwar" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-game-select">← Abandonner</button>
+    <h2>Tir à la corde</h2>
+  </header>
+  <div class="rl-arena">
+    <canvas id="tow-canvas" width="900" height="300"></canvas>
+    <div class="rl-controls">
+      <button id="tow-pull-btn" class="btn-hold">TAPE VITE POUR TIRER</button>
+      <p class="rl-hint">(ou martèle la barre <kbd>ESPACE</kbd>)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN JEU : BILLE (VS IA) ===== -->
+<section id="screen-marble" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-game-select">← Abandonner</button>
+    <h2>Bille — Manche <span id="marble-round">1</span>/3</h2>
+  </header>
+  <div class="rl-arena">
+    <canvas id="marble-canvas" width="900" height="200"></canvas>
+    <div class="rl-controls">
+      <button id="marble-stop-btn" class="btn-hold">ARRÊTE LA JAUGE</button>
+      <p class="rl-hint">(ou appuie sur <kbd>ESPACE</kbd> au bon moment)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN SALON ENTRE AMIS : ACCUEIL (CRÉER / REJOINDRE) ===== -->
+<section id="screen-friend-home" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-menu">← Retour</button>
+    <h2>Entre amis</h2>
+  </header>
+  <div class="menu-grid">
+    <button class="menu-tile tile-available" id="btn-create-room">
+      <span class="tile-shape shape-circle"></span>
+      <h2>Créer un salon</h2>
+      <p>Génère un code à partager avec tes amis.</p>
+    </button>
+    <div class="menu-tile" style="cursor:default;">
+      <span class="tile-shape shape-square"></span>
+      <h2>Rejoindre un salon</h2>
+      <div class="join-room-form">
+        <input type="text" id="join-room-code" placeholder="CODE" maxlength="5" autocapitalize="characters">
+        <button class="btn-primary" id="btn-join-room">Rejoindre</button>
+      </div>
+      <p class="form-error" id="join-room-error"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN SALON D'ATTENTE ===== -->
+<section id="screen-friend-lobby" class="screen">
+  <div class="result-card">
+    <h1>Salon <span id="lobby-code" style="color: var(--accent-jade);">—</span></h1>
+    <p>Partage ce code avec tes amis pour qu'ils te rejoignent.</p>
+    <div class="mp-result-list" id="lobby-players"></div>
+    <button class="btn-primary" id="btn-start-room" style="display:none;">Lancer la partie</button>
+    <p class="rl-hint" id="lobby-wait-msg">En attente que l'hôte lance la partie…</p>
+    <button class="btn-ghost" id="btn-leave-room">Quitter le salon</button>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN AMIS ===== -->
+<section id="screen-friends" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-back="screen-menu">← Retour</button>
+    <h2>Mes amis</h2>
+  </header>
+  <div class="auth-card" style="max-width: 480px; margin: 0 auto 24px;">
+    <label>Ajouter un ami par pseudo
+      <input type="text" id="add-friend-username" placeholder="Pseudo exact">
+    </label>
+    <button class="btn-primary" id="btn-add-friend" style="margin-top: 12px;">Ajouter</button>
+    <p class="form-error" id="add-friend-error"></p>
+  </div>
+  <div id="friends-list" class="menu-grid" style="max-width: 480px; margin: 0 auto;"></div>
+</section>
+
 <!-- ===== ÉCRAN FIN DE PARTIE ===== -->
 <section id="screen-result" class="screen">
   <div class="result-card">
@@ -210,6 +293,10 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/app.js"></script>
 <script src="js/game-redlight.js"></script>
+<script src="js/game-tugofwar.js"></script>
+<script src="js/game-marble.js"></script>
 <script src="js/multiplayer-redlight.js"></script>
+<script src="js/friend-room.js"></script>
+<script src="js/friends.js"></script>
 </body>
 </html>

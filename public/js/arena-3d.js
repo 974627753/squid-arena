@@ -11,10 +11,28 @@
   const BOUND_MAX_Y = 490;
   const SCALE = 15; // pixels serveur -> unités monde 3D
 
-  const COLOR_ME = 0x3fb6ff;
-  const COLOR_PLAYER = 0x29ffa3;
+  // ----- Couleurs -----
+  // IMPORTANT : COLOR_LIGHT_GREEN (feu vert du poteau + ligne de départ) est
+  // volontairement séparée de la couleur des joueurs adverses. Avant, les deux
+  // utilisaient le même vert néon (#29ffa3), ce qui rendait les joueurs
+  // difficiles à distinguer du décor pendant le feu vert.
+  const COLOR_ME = 0x3fb6ff; // bleu — toujours "moi", jamais réutilisé ailleurs
   const COLOR_ELIMINATED = 0x3a4150;
-  const COLOR_FINISHED = 0xffd23b;
+  const COLOR_FINISHED = 0xffd23b; // jaune, cohérent avec la ligne/les balises d'arrivée
+  const COLOR_LIGHT_GREEN = 0x29ffa3; // réservé au poteau + ligne de départ
+  const COLOR_LIGHT_RED = 0xff3b5c;
+
+  // Palette pour les adversaires : chaque joueur reçoit une couleur stable
+  // (dérivée de son userId) parmi ces teintes, toutes bien distinctes du bleu
+  // "moi", du vert/rouge du feu, du jaune "arrivé" et du gris "éliminé".
+  const OPPONENT_PALETTE = [0xff8a3d, 0xb388ff, 0xff5fa8, 0x4dd2ff, 0xffc24d, 0x8bd450];
+
+  function colorForOpponent(userId) {
+    const str = String(userId);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0;
+    return OPPONENT_PALETTE[Math.abs(hash) % OPPONENT_PALETTE.length];
+  }
 
   class Arena3D {
     constructor(container) {
@@ -22,14 +40,67 @@
       this.playerEntries = new Map(); // userId -> render state
       this.clock = new THREE.Clock();
 
+      // Vue caméra : "third" (par défaut, caméra à l'épaule qui suit le joueur)
+      // ou "first" (vue subjective, à hauteur des yeux). Se bascule au clic sur
+      // le bouton ou avec la touche C.
+      this.viewMode = 'third';
+      this._camLookAt = null;
+
       this._buildScene();
       this._buildTagLayer();
+      this._buildViewToggle();
 
       this._onResize = this._onResize.bind(this);
       window.addEventListener('resize', this._onResize);
+      // window 'resize' ne suffit pas sur mobile (rotation d'écran, barre
+      // d'adresse qui apparaît/disparaît, mode split-screen...). On observe
+      // aussi directement le conteneur pour rester correct sur tout appareil.
+      if (window.ResizeObserver) {
+        this._resizeObserver = new ResizeObserver(this._onResize);
+        this._resizeObserver.observe(this.container);
+      }
+
+      this._onKeyDown = this._onKeyDown.bind(this);
+      window.addEventListener('keydown', this._onKeyDown);
 
       this._tick = this._tick.bind(this);
       this._rafId = requestAnimationFrame(this._tick);
+    }
+
+    // ===== BASCULE DE VUE (1ère / 3e personne) =====
+    _buildViewToggle() {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mp-view-toggle';
+      btn.setAttribute('aria-label', 'Changer de vue caméra (1ère / 3e personne)');
+      btn.addEventListener('click', () => this.toggleViewMode());
+      this.container.appendChild(btn);
+      this.viewToggleBtn = btn;
+      this._refreshViewToggleLabel();
+    }
+
+    _refreshViewToggleLabel() {
+      if (!this.viewToggleBtn) return;
+      this.viewToggleBtn.textContent = this.viewMode === 'first'
+        ? '🎥 Vue : 1ère personne'
+        : '🎥 Vue : 3e personne';
+    }
+
+    toggleViewMode() {
+      this.viewMode = this.viewMode === 'first' ? 'third' : 'first';
+      this._camLookAt = null; // évite un mouvement de caméra brusque au changement
+      this._refreshViewToggleLabel();
+    }
+
+    _onKeyDown(e) {
+      if (e.code === 'KeyC') this.toggleViewMode();
+    }
+
+    _findMeEntry() {
+      for (const entry of this.playerEntries.values()) {
+        if (entry.isMe) return entry;
+      }
+      return null;
     }
 
     // ===== CONVERSION COORDONNÉES SERVEUR (px) -> MONDE 3D =====
@@ -50,6 +121,7 @@
       const centerZ = (finishZ + backZ) / 2;
 
       this.camera = new THREE.PerspectiveCamera(48, w / h, 0.1, 200);
+      this._applyFovForAspect(w / h);
       this.camera.position.set(0, 24, backZ + 16);
       this.camera.lookAt(0, 0, centerZ);
 
@@ -151,13 +223,13 @@
 
       const eye = new THREE.Mesh(
         new THREE.SphereGeometry(0.5, 16, 16),
-        new THREE.MeshStandardMaterial({ color: COLOR_PLAYER, emissive: COLOR_PLAYER, emissiveIntensity: 1.3 })
+        new THREE.MeshStandardMaterial({ color: COLOR_LIGHT_GREEN, emissive: COLOR_LIGHT_GREEN, emissiveIntensity: 1.3 })
       );
       eye.position.set(0, 8.8, 0.9);
       group.add(eye);
       this.towerEye = eye;
 
-      this.towerLight = new THREE.PointLight(COLOR_PLAYER, 1.3, 14);
+      this.towerLight = new THREE.PointLight(COLOR_LIGHT_GREEN, 1.3, 14);
       this.towerLight.position.set(0, 8.8, 1.4);
       group.add(this.towerLight);
 
@@ -213,7 +285,7 @@
     // ===== MISE À JOUR DEPUIS L'ÉTAT SERVEUR =====
     update(state, meUserId) {
       const green = state.light === 'green';
-      const color = green ? COLOR_PLAYER : 0xff3b5c;
+      const color = green ? COLOR_LIGHT_GREEN : COLOR_LIGHT_RED;
       if (this.towerEye) {
         this.towerEye.material.color.setHex(color);
         this.towerEye.material.emissive.setHex(color);
@@ -228,7 +300,7 @@
         let entry = this.playerEntries.get(p.userId);
 
         if (!entry) {
-          const mesh = this._buildCharacter(isMe ? COLOR_ME : COLOR_PLAYER);
+          const mesh = this._buildCharacter(isMe ? COLOR_ME : colorForOpponent(p.userId));
           this.scene.add(mesh);
 
           const tag = document.createElement('div');
@@ -264,8 +336,8 @@
       });
 
       // Couleurs selon l'état (éliminé / arrivé / en jeu)
-      this.playerEntries.forEach((entry) => {
-        let c = entry.isMe ? COLOR_ME : COLOR_PLAYER;
+      this.playerEntries.forEach((entry, userId) => {
+        let c = entry.isMe ? COLOR_ME : colorForOpponent(userId);
         if (entry.eliminated) c = COLOR_ELIMINATED;
         else if (entry.finished) c = COLOR_FINISHED;
 
@@ -313,8 +385,19 @@
         entry.mesh.position.x = entry.x;
         entry.mesh.position.z = entry.z;
         entry.mesh.rotation.y = entry.heading;
+      });
 
-        // Projection écran pour l'étiquette de nom (DOM au-dessus du canvas)
+      // ----- Caméra : suit "moi" en 1ère ou 3e personne dès que je suis dans la partie -----
+      const me = this._findMeEntry();
+      if (me) this._applyCamera(me, dt);
+
+      // ----- Étiquettes de noms (projection écran, après positionnement caméra) -----
+      this.playerEntries.forEach((entry) => {
+        const hideOwnTagInFirstPerson = entry.isMe && this.viewMode === 'first';
+        if (hideOwnTagInFirstPerson) {
+          entry.tag.style.display = 'none';
+          return;
+        }
         const worldPos = new THREE.Vector3(entry.x, 2.0, entry.z).project(this.camera);
         const visible = worldPos.z < 1;
         entry.tag.style.display = visible ? 'block' : 'none';
@@ -331,6 +414,44 @@
       this.renderer.render(this.scene, this.camera);
     }
 
+    // ===== POSITIONNEMENT CAMÉRA (1ère personne / 3e personne) =====
+    _applyCamera(entry, dt) {
+      // Vecteur "vers l'avant" du joueur, dérivé de son cap (même convention
+      // que mesh.rotation.y = entry.heading).
+      const fx = Math.sin(entry.heading);
+      const fz = Math.cos(entry.heading);
+      const posLerp = Math.min(1, dt * 10);
+      const lookLerp = Math.min(1, dt * 10);
+
+      if (this.viewMode === 'first') {
+        entry.mesh.visible = false; // on ne voit pas son propre corps en vue subjective
+
+        const eyeHeight = 1.55;
+        const desiredPos = new THREE.Vector3(entry.x, eyeHeight, entry.z);
+        this.camera.position.lerp(desiredPos, posLerp);
+
+        const desiredLook = new THREE.Vector3(entry.x + fx, eyeHeight, entry.z + fz);
+        if (!this._camLookAt) this._camLookAt = desiredLook.clone();
+        this._camLookAt.lerp(desiredLook, lookLerp);
+        this.camera.lookAt(this._camLookAt);
+      } else {
+        entry.mesh.visible = true;
+
+        const backDist = 5.5, height = 3.1;
+        const desiredPos = new THREE.Vector3(
+          entry.x - fx * backDist,
+          height,
+          entry.z - fz * backDist
+        );
+        this.camera.position.lerp(desiredPos, posLerp);
+
+        const desiredLook = new THREE.Vector3(entry.x, 1.1, entry.z);
+        if (!this._camLookAt) this._camLookAt = desiredLook.clone();
+        this._camLookAt.lerp(desiredLook, lookLerp);
+        this.camera.lookAt(this._camLookAt);
+      }
+    }
+
     _angleDiff(a, b) {
       let d = b - a;
       while (d > Math.PI) d -= Math.PI * 2;
@@ -338,17 +459,34 @@
       return d;
     }
 
+    // Garde un champ de vision HORIZONTAL à peu près constant (~62°) quel que
+    // soit l'écran, en recalculant le FOV vertical de Three.js à partir du
+    // ratio. Sans ça, un écran de téléphone en portrait (étroit) donne un
+    // rendu "zoomé" et inconfortable avec un FOV vertical fixe.
+    _applyFovForAspect(aspect) {
+      const targetHorizontalFovDeg = 62;
+      const hFovRad = THREE.MathUtils.degToRad(targetHorizontalFovDeg);
+      const vFovRad = 2 * Math.atan(Math.tan(hFovRad / 2) / Math.max(aspect, 0.01));
+      const vFovDeg = THREE.MathUtils.radToDeg(vFovRad);
+      this.camera.fov = THREE.MathUtils.clamp(vFovDeg, 40, 90);
+    }
+
     _onResize() {
       const w = this.container.clientWidth, h = this.container.clientHeight;
       if (!w || !h) return;
       this.camera.aspect = w / h;
+      this._applyFovForAspect(w / h);
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     }
 
     dispose() {
       cancelAnimationFrame(this._rafId);
       window.removeEventListener('resize', this._onResize);
+      window.removeEventListener('keydown', this._onKeyDown);
+      if (this._resizeObserver) this._resizeObserver.disconnect();
+      if (this.viewToggleBtn && this.viewToggleBtn.parentNode) this.viewToggleBtn.parentNode.removeChild(this.viewToggleBtn);
       this.playerEntries.forEach((e) => { this.scene.remove(e.mesh); e.tag.remove(); });
       this.playerEntries.clear();
       this.renderer.dispose();

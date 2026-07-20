@@ -269,6 +269,26 @@ html, body {
 .mp-player-tag-3d.is-finished { color: #ffd23b; border-color: #ffd23b; }
 .mp-player-tag-3d.is-eliminated { color: var(--text-muted); border-color: var(--line); opacity: 0.55; }
 
+.mp-view-toggle {
+  position: absolute;
+  top: 10px; right: 10px;
+  z-index: 2;
+  background: rgba(10, 13, 18, 0.72);
+  border: 1px solid var(--line);
+  color: var(--text-main);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: .3px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  transition: border-color .15s, transform .08s;
+}
+.mp-view-toggle:hover { border-color: var(--accent-jade); }
+.mp-view-toggle:active { transform: scale(0.96); }
+
 .rl-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .btn-hold {
   user-select: none;
@@ -374,4 +394,11 @@ kbd {
   .menu-grid { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
   .stats-strip { flex-wrap: wrap; gap: 20px; }
+
+  /* Sur téléphone, un ratio plus haut évite une scène 3D trop écrasée
+     et laisse de la place au joystick sous l'arène. */
+  .rl-scene-3d { aspect-ratio: 4 / 3; }
+  .mp-view-toggle { font-size: 11px; padding: 6px 10px; }
+  .joystick-base { width: 100px; height: 100px; }
+  .joystick-stick { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
 }

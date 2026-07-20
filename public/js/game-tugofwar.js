@@ -1,18 +1,23 @@
 (function () {
-  const canvas = document.getElementById('tow-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const sceneContainer = document.getElementById('tow-scene');
+  let arena = null;
   const pullBtn = document.getElementById('tow-pull-btn');
 
+  const W = 900; // même échelle que la version multijoueur (coordonnées serveur)
   const LEFT_EDGE = 90;
   const RIGHT_EDGE = W - 90;
   const CENTER = W / 2;
-  const TAP_IMPULSE = 46; // px/s ajoutés par tape
+  const TAP_IMPULSE = 46; // impulsion ajoutée par tape
   const FRICTION = 0.985; // décroissance de la vitesse par frame
   const AI_MIN_INTERVAL = 220, AI_MAX_INTERVAL = 420; // ms entre deux "tapes" de l'IA
   const MAX_DURATION = 25; // secondes avant match nul
 
   let markerX, velocity, running, timeElapsed, aiNextTapAt, rafId, lastTs;
+
+  function getArena() {
+    if (!arena) arena = new TugOfWar3D(sceneContainer);
+    return arena;
+  }
 
   function resetGame() {
     markerX = CENTER;
@@ -49,53 +54,13 @@
     markerX += velocity * dt;
     markerX = Math.max(LEFT_EDGE - 10, Math.min(RIGHT_EDGE + 10, markerX));
 
-    draw();
+    getArena().update({ markerX, timeLeft: Math.max(0, MAX_DURATION - timeElapsed) });
 
     if (markerX <= LEFT_EDGE) return endGame(true);
     if (markerX >= RIGHT_EDGE) return endGame(false);
     if (timeElapsed >= MAX_DURATION) return endGame(markerX < CENTER);
 
     rafId = requestAnimationFrame(loop);
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-
-    // Corde
-    ctx.strokeStyle = '#3a4150';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(40, H / 2); ctx.lineTo(W - 40, H / 2);
-    ctx.stroke();
-
-    // Zones de victoire
-    ctx.fillStyle = 'rgba(41,255,163,0.08)';
-    ctx.fillRect(0, 0, LEFT_EDGE, H);
-    ctx.fillStyle = 'rgba(255,59,92,0.08)';
-    ctx.fillRect(RIGHT_EDGE, 0, W - RIGHT_EDGE, H);
-
-    ctx.strokeStyle = '#29ffa3';
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath(); ctx.moveTo(LEFT_EDGE, 0); ctx.lineTo(LEFT_EDGE, H); ctx.stroke();
-    ctx.strokeStyle = '#ff3b5c';
-    ctx.beginPath(); ctx.moveTo(RIGHT_EDGE, 0); ctx.lineTo(RIGHT_EDGE, H); ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#7c8794';
-    ctx.font = '600 13px Rajdhani, sans-serif';
-    ctx.fillText('TOI', 16, 24);
-    ctx.textAlign = 'right';
-    ctx.fillText('MACHINE', W - 16, 24);
-    ctx.textAlign = 'left';
-
-    // Marqueur
-    ctx.beginPath();
-    ctx.arc(markerX, H / 2, 18, 0, Math.PI * 2);
-    ctx.fillStyle = '#eef1f3';
-    ctx.shadowColor = '#eef1f3';
-    ctx.shadowBlur = 10;
-    ctx.fill();
-    ctx.shadowBlur = 0;
   }
 
   async function endGame(won) {
@@ -128,7 +93,17 @@
   function startGame() {
     resetGame();
     showScreen('screen-tugofwar');
-    draw();
+    requestAnimationFrame(() => {
+      const a = getArena();
+      a._onResize();
+      a.setupPlayers(
+        [
+          { userId: 'me', username: (AppState.user && AppState.user.username) || 'Toi', team: 'left' },
+          { userId: 'ai', username: 'MACHINE', team: 'right' }
+        ],
+        'me'
+      );
+    });
     rafId = requestAnimationFrame(loop);
   }
 

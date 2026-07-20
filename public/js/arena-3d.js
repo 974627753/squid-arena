@@ -9,7 +9,7 @@
   const START_Y = 440;
   const FINISH_Y = 60;
   const BOUND_MAX_Y = 490;
-  const SCALE = 15; // pixels serveur -> unités monde 3D
+  const SCALE = 11; // pixels serveur -> unités monde 3D (terrain plus grand qu'avant)
 
   // ----- Couleurs -----
   // IMPORTANT : COLOR_LIGHT_GREEN (feu vert du poteau + ligne de départ) est
@@ -113,8 +113,8 @@
       const h = Math.max(this.container.clientHeight, 1);
 
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0x0a0d12);
-      this.scene.fog = new THREE.Fog(0x0a0d12, 26, 78);
+      this.scene.background = new THREE.Color(0x0b0f16);
+      this.scene.fog = new THREE.Fog(0x0b0f16, 40, 130);
 
       const finishZ = this.worldZ(FINISH_Y);
       const backZ = this.worldZ(BOUND_MAX_Y);
@@ -148,6 +148,10 @@
       rim.position.set(-20, 12, finishZ - 10);
       this.scene.add(rim);
 
+      // Lueur chaude ambiante façon "nuit de stade" (projecteurs qui éclairent le ciel)
+      const stadiumGlow = new THREE.HemisphereLight(0x3a4a66, 0x0a0d12, 0.35);
+      this.scene.add(stadiumGlow);
+
       // ----- Sol -----
       const groundW = ARENA_WIDTH / SCALE + 8;
       const groundD = (backZ - finishZ) + 8;
@@ -163,6 +167,21 @@
       const grid = new THREE.GridHelper(Math.max(groundW, groundD), 22, 0x262c37, 0x161a21);
       grid.position.set(0, 0.01, centerZ);
       this.scene.add(grid);
+
+      // ----- Lignes de "yards" façon terrain de foot américain, en travers du terrain -----
+      const yardMat = new THREE.LineBasicMaterial({ color: 0x394252 });
+      const yardCount = 8;
+      for (let i = 1; i < yardCount; i++) {
+        const z = finishZ + (groundD - 2) * (i / yardCount);
+        const pts = [
+          new THREE.Vector3(-groundW / 2 + 1, 0.02, z),
+          new THREE.Vector3(groundW / 2 - 1, 0.02, z)
+        ];
+        this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), yardMat));
+      }
+
+      // ----- Ambiance stade (gradins + public + projecteurs) -----
+      this._buildStadium(groundW, groundD, centerZ);
 
       // ----- Ligne d'arrivée -----
       const finishLine = new THREE.Mesh(
@@ -206,6 +225,118 @@
       this.tower.position.set(0, 0, finishZ - 3.5);
       this.tower.rotation.y = Math.PI;
       this.scene.add(this.tower);
+    }
+
+    // ===== AMBIANCE STADE (gradins + public + projecteurs) =====
+    _buildStadium(groundW, groundD, centerZ) {
+      const group = new THREE.Group();
+      const margin = 2.5; // écart entre le terrain et le premier gradin
+      const tiers = 5;
+      const tierHeight = 1.3;
+      const tierDepth = 1.35;
+      const standMat = new THREE.MeshStandardMaterial({ color: 0x171b22, roughness: 0.95, metalness: 0.05 });
+      const crowdColors = [0xffd23b, 0xff5fa8, 0x4dd2ff, 0xb388ff, 0xff8a3d, 0x8bd450, 0xe8ecf1, 0x3fb6ff];
+      const crowdGeo = new THREE.BoxGeometry(0.3, 0.34, 0.3);
+
+      // Construit un gradin (une tribune) le long de l'axe X, orienté vers le terrain,
+      // avec du "public" (petits cubes colorés) rendu en instancié — un seul mesh GPU
+      // pour des centaines de silhouettes, afin de rester léger sur mobile.
+      const buildStand = (length) => {
+        const stand = new THREE.Group();
+        const seatPositions = [];
+        const seatColors = [];
+
+        for (let t = 0; t < tiers; t++) {
+          const tier = new THREE.Mesh(new THREE.BoxGeometry(length, tierHeight, tierDepth), standMat);
+          tier.position.set(0, tierHeight * (t + 0.5), -t * tierDepth * 0.92);
+          tier.receiveShadow = true;
+          stand.add(tier);
+
+          const seatsOnTier = Math.max(6, Math.floor(length / 0.55));
+          for (let s = 0; s < seatsOnTier; s++) {
+            if (Math.random() < 0.22) continue; // sièges vides ici et là, plus réaliste
+            seatPositions.push([
+              -length / 2 + (s + 0.5) * (length / seatsOnTier) + (Math.random() - 0.5) * 0.15,
+              tierHeight * (t + 1) + 0.17,
+              -t * tierDepth * 0.92 + (Math.random() - 0.5) * 0.3
+            ]);
+            seatColors.push(crowdColors[Math.floor(Math.random() * crowdColors.length)]);
+          }
+        }
+
+        const crowdMesh = new THREE.InstancedMesh(
+          crowdGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), seatPositions.length
+        );
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+        seatPositions.forEach(([x, y, z], i) => {
+          dummy.position.set(x, y, z);
+          dummy.updateMatrix();
+          crowdMesh.setMatrixAt(i, dummy.matrix);
+          color.setHex(seatColors[i]);
+          crowdMesh.setColorAt(i, color);
+        });
+        if (crowdMesh.instanceColor) crowdMesh.instanceColor.needsUpdate = true;
+        stand.add(crowdMesh);
+
+        return stand;
+      };
+
+      // Deux longues tribunes le long des côtés du terrain (les plus visibles à la caméra)
+      const sideLength = groundD + 6;
+      const standLeft = buildStand(sideLength);
+      standLeft.rotation.y = Math.PI / 2;
+      standLeft.position.set(-groundW / 2 - margin, 0, centerZ);
+      group.add(standLeft);
+
+      const standRight = buildStand(sideLength);
+      standRight.rotation.y = -Math.PI / 2;
+      standRight.position.set(groundW / 2 + margin, 0, centerZ);
+      group.add(standRight);
+
+      // Deux tribunes plus courtes aux extrémités (derrière la poupée / derrière le départ)
+      const endLength = groundW + 6;
+      const standFar = buildStand(endLength);
+      standFar.rotation.y = Math.PI;
+      standFar.position.set(0, 0, centerZ - groundD / 2 - margin);
+      group.add(standFar);
+
+      const standNear = buildStand(endLength);
+      standNear.position.set(0, 0, centerZ + groundD / 2 + margin);
+      group.add(standNear);
+
+      // ----- Tours de projecteurs aux 4 coins -----
+      const poleMat = new THREE.MeshStandardMaterial({ color: 0x20242c, metalness: 0.6, roughness: 0.4 });
+      const cornerOffsetX = groundW / 2 + margin + 2;
+      const cornerOffsetZ = groundD / 2 + margin + 2;
+      const corners = [
+        [-cornerOffsetX, centerZ - cornerOffsetZ],
+        [cornerOffsetX, centerZ - cornerOffsetZ],
+        [-cornerOffsetX, centerZ + cornerOffsetZ],
+        [cornerOffsetX, centerZ + cornerOffsetZ]
+      ];
+      corners.forEach(([x, z]) => {
+        const poleHeight = 15;
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, poleHeight, 8), poleMat);
+        pole.position.set(x, poleHeight / 2, z);
+        pole.castShadow = true;
+        group.add(pole);
+
+        const headPanel = new THREE.Mesh(
+          new THREE.BoxGeometry(2.2, 1.4, 0.2),
+          new THREE.MeshStandardMaterial({ color: 0xe8ecf1, emissive: 0xe8ecf1, emissiveIntensity: 0.9 })
+        );
+        headPanel.position.set(x, poleHeight + 0.5, z);
+        headPanel.lookAt(0, 0, centerZ);
+        group.add(headPanel);
+
+        const spot = new THREE.SpotLight(0xfff6e0, 0.9, 90, Math.PI / 6, 0.5, 1.2);
+        spot.position.set(x, poleHeight + 0.5, z);
+        spot.target.position.set(0, 0, centerZ);
+        group.add(spot, spot.target);
+      });
+
+      this.scene.add(group);
     }
 
     _buildTower() {

@@ -308,6 +308,10 @@ html, body {
 .tow-my-team.is-left { color: #3fb6ff; }
 .tow-my-team.is-right { color: #ff8a3d; }
 
+.friend-create-actions {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
+}
+
 .rl-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .btn-hold {
   user-select: none;

@@ -65,15 +65,21 @@ io.on('connection', (socket) => {
   });
 
   // --- Salons privés "Entre amis" ---
-  socket.on('friend:room:create', () => friendRooms.createRoom(socket));
+  socket.on('friend:room:create', ({ gameType } = {}) => friendRooms.createRoom(socket, gameType));
   socket.on('friend:room:join', ({ code }) => friendRooms.joinRoom(socket, (code || '').toUpperCase()));
   socket.on('friend:room:leave', () => friendRooms.leaveRoom(socket));
   socket.on('friend:room:start', ({ code }) => friendRooms.startRoom(socket, (code || '').toUpperCase()));
 
-  // --- "Tir à la corde" en ligne (public, équipes variables) ---
+  // --- "Tir à la corde" en ligne (public, équipes variables) -----
   socket.on('tow:queue:join', () => onlineTugOfWar.joinQueue(socket));
   socket.on('tow:queue:leave', () => onlineTugOfWar.leaveQueue(socket));
-  socket.on('tow:tap', ({ matchId }) => onlineTugOfWar.tap(socket, matchId));
+  socket.on('tow:tap', ({ matchId }) => {
+    if (typeof matchId === 'string' && matchId.startsWith('friend-')) {
+      friendRooms.tapTugOfWar(socket, matchId.replace('friend-', ''));
+    } else {
+      onlineTugOfWar.tap(socket, matchId);
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log(`Socket déconnecté: ${socket.username} (${socket.id})`);

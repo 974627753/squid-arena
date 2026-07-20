@@ -259,7 +259,7 @@
     <h2>Tir à la corde</h2>
   </header>
   <div class="rl-arena">
-    <canvas id="tow-canvas" width="900" height="300"></canvas>
+    <div id="tow-scene" class="rl-scene-3d" aria-label="Arène 3D du tir à la corde"></div>
     <div class="rl-controls">
       <button id="tow-pull-btn" class="btn-hold">TAPE VITE POUR TIRER</button>
       <p class="rl-hint">(ou martèle la barre <kbd>ESPACE</kbd>)</p>
@@ -289,11 +289,15 @@
     <h2>Entre amis</h2>
   </header>
   <div class="menu-grid">
-    <button class="menu-tile tile-available" id="btn-create-room">
+    <div class="menu-tile" style="cursor:default;">
       <span class="tile-shape shape-circle"></span>
       <h2>Créer un salon</h2>
-      <p>Génère un code à partager avec tes amis.</p>
-    </button>
+      <p>Choisis l'épreuve, puis partage le code avec tes amis.</p>
+      <div class="friend-create-actions">
+        <button class="btn-primary" id="btn-create-room-redlight">1, 2, 3 Soleil</button>
+        <button class="btn-primary" id="btn-create-room-tugofwar">Tir à la corde</button>
+      </div>
+    </div>
     <div class="menu-tile" style="cursor:default;">
       <span class="tile-shape shape-square"></span>
       <h2>Rejoindre un salon</h2>
@@ -310,6 +314,7 @@
 <section id="screen-friend-lobby" class="screen">
   <div class="result-card">
     <h1>Salon <span id="lobby-code" style="color: var(--accent-jade);">—</span></h1>
+    <p>Épreuve : <strong id="lobby-gametype">—</strong></p>
     <p>Partage ce code avec tes amis pour qu'ils te rejoignent.</p>
     <div class="mp-result-list" id="lobby-players"></div>
     <button class="btn-primary" id="btn-start-room" style="display:none;">Lancer la partie</button>
@@ -347,11 +352,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="js/app.js"></script>
+<script src="js/arena-3d.js"></script>
+<script src="js/tugofwar-3d.js"></script>
 <script src="js/game-redlight.js"></script>
 <script src="js/game-tugofwar.js"></script>
 <script src="js/game-marble.js"></script>
-<script src="js/arena-3d.js"></script>
-<script src="js/tugofwar-3d.js"></script>
 <script src="js/multiplayer-redlight.js"></script>
 <script src="js/multiplayer-tugofwar.js"></script>
 <script src="js/friend-room.js"></script>

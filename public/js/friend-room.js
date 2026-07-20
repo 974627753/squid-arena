@@ -6,10 +6,16 @@
     showScreen('screen-friend-home');
   });
 
-  document.getElementById('btn-create-room').addEventListener('click', () => {
+  document.getElementById('btn-create-room-redlight').addEventListener('click', () => {
     if (!AppState.socket) connectSocket();
     bindEvents(AppState.socket);
-    AppState.socket.emit('friend:room:create');
+    AppState.socket.emit('friend:room:create', { gameType: 'redlight' });
+  });
+
+  document.getElementById('btn-create-room-tugofwar').addEventListener('click', () => {
+    if (!AppState.socket) connectSocket();
+    bindEvents(AppState.socket);
+    AppState.socket.emit('friend:room:create', { gameType: 'tugofwar' });
   });
 
   document.getElementById('btn-join-room').addEventListener('click', () => {
@@ -33,11 +39,16 @@
     }
   });
 
+  function gameTypeLabel(gameType) {
+    return gameType === 'tugofwar' ? 'Tir à la corde' : '1, 2, 3 Soleil';
+  }
+
   function bindEvents(socket) {
     socket.off('friend:room:created');
-    socket.on('friend:room:created', ({ code }) => {
+    socket.on('friend:room:created', ({ code, gameType }) => {
       currentCode = code;
       document.getElementById('lobby-code').textContent = code;
+      document.getElementById('lobby-gametype').textContent = gameTypeLabel(gameType);
       showScreen('screen-friend-lobby');
     });
 
@@ -48,10 +59,11 @@
     });
 
     socket.off('friend:room:update');
-    socket.on('friend:room:update', ({ code, hostSocketId, players }) => {
+    socket.on('friend:room:update', ({ code, gameType, hostSocketId, players }) => {
       currentCode = code;
       isHost = socket.id === hostSocketId;
       document.getElementById('lobby-code').textContent = code;
+      document.getElementById('lobby-gametype').textContent = gameTypeLabel(gameType);
 
       const listEl = document.getElementById('lobby-players');
       listEl.innerHTML = '';

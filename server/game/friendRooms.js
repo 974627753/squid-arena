@@ -12,6 +12,15 @@ const RED_LIGHT_GRACE_MS = 130;
 const TICK_MS = 100;
 const MAX_PLAYERS = 6;
 
+// ----- Constantes "Tir à la corde" (identiques au mode en ligne public) -----
+const TOW_CENTER = ARENA_WIDTH / 2;
+const TOW_LEFT_EDGE = 90;
+const TOW_RIGHT_EDGE = ARENA_WIDTH - 90;
+const TOW_TAP_IMPULSE = 46;
+const TOW_FRICTION_LN60 = Math.log(0.985) * 60;
+const TOW_MIN_TAP_INTERVAL_MS = 45;
+const TOW_MAX_DURATION = 30;
+
 // Petit rectangle de départ (tous les joueurs y apparaissent, au centre de l'arène)
 const START_RECT = { x: ARENA_WIDTH / 2 - 100, y: START_Y, width: 200, height: 50 };
 const START_COLS = 3;
@@ -44,7 +53,9 @@ class FriendRoomManager {
     this.rooms = new Map(); // code -> room state
   }
 
-  createRoom(socket) {
+  createRoom(socket, gameType) {
+    gameType = gameType === 'tugofwar' ? 'tugofwar' : 'redlight';
+
     let code;
     do { code = generateRoomCode(); } while (this.rooms.has(code));
 
@@ -52,22 +63,35 @@ class FriendRoomManager {
       code,
       hostSocketId: socket.id,
       status: 'waiting', // waiting | playing | ended
-      players: new Map(), // socketId -> { socketId, userId, username, x, y, dx, dy, eliminated, finished, finishTime }
-      light: 'green',
-      lightTimer: 0,
-      lightDuration: randRange(1.4, 3.2),
-      redLightSince: null,
-      timeLeft: GAME_DURATION,
-      winnerId: null,
+      gameType,
+      players: new Map(),
       interval: null
     };
 
-    room.players.set(socket.id, this._newPlayer(socket));
+    if (gameType === 'redlight') {
+      Object.assign(room, {
+        light: 'green',
+        lightTimer: 0,
+        lightDuration: randRange(1.4, 3.2),
+        redLightSince: null,
+        timeLeft: GAME_DURATION,
+        winnerId: null
+      });
+    } else {
+      Object.assign(room, {
+        markerX: TOW_CENTER,
+        velocity: 0,
+        timeLeft: TOW_MAX_DURATION,
+        winnerTeam: null
+      });
+    }
+
+    room.players.set(socket.id, this._newPlayer(socket, room));
     socket.join(`room-${code}`);
     socket.currentRoomCode = code;
     this.rooms.set(code, room);
 
-    socket.emit('friend:room:created', { code });
+    socket.emit('friend:room:created', { code, gameType });
     this._broadcastRoom(room);
     return room;
   }
@@ -79,7 +103,7 @@ class FriendRoomManager {
     if (room.players.size >= MAX_PLAYERS) return socket.emit('friend:room:error', { error: 'Salon complet (6 joueurs max).' });
     if (room.players.has(socket.id)) return;
 
-    room.players.set(socket.id, this._newPlayer(socket));
+    room.players.set(socket.id, this._newPlayer(socket, room));
     socket.join(`room-${code}`);
     socket.currentRoomCode = code;
 
@@ -117,22 +141,30 @@ class FriendRoomManager {
     if (room.status !== 'waiting') return;
 
     room.status = 'playing';
-    Array.from(room.players.values()).forEach((player, i) => {
-      const pos = startPositionForIndex(i);
-      player.x = pos.x;
-      player.y = pos.y;
-    });
-    this.io.to(`room-${code}`).emit('match:found', {
-      matchId: `friend-${code}`,
-      players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username }))
-    });
 
-    room.interval = setInterval(() => this._tick(room), TICK_MS);
+    if (room.gameType === 'redlight') {
+      Array.from(room.players.values()).forEach((player, i) => {
+        const pos = startPositionForIndex(i);
+        player.x = pos.x;
+        player.y = pos.y;
+      });
+      this.io.to(`room-${code}`).emit('match:found', {
+        matchId: `friend-${code}`,
+        players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username }))
+      });
+      room.interval = setInterval(() => this._tickRedLight(room), TICK_MS);
+    } else {
+      this.io.to(`room-${code}`).emit('tow:match:found', {
+        matchId: `friend-${code}`,
+        players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username, team: p.team }))
+      });
+      room.interval = setInterval(() => this._tickTugOfWar(room), TICK_MS);
+    }
   }
 
   setDirection(socket, code, dx, dy) {
     const room = this.rooms.get(code);
-    if (!room || room.status !== 'playing') return;
+    if (!room || room.status !== 'playing' || room.gameType !== 'redlight') return;
     const player = room.players.get(socket.id);
     if (!player) return;
 
@@ -145,12 +177,39 @@ class FriendRoomManager {
     player.dy = dy;
   }
 
+  // ===== TIR À LA CORDE : une tape reçue d'un joueur du salon =====
+  tapTugOfWar(socket, code) {
+    const room = this.rooms.get(code);
+    if (!room || room.status !== 'playing' || room.gameType !== 'tugofwar') return;
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    const now = Date.now();
+    if (now - player.lastTapAt < TOW_MIN_TAP_INTERVAL_MS) return; // anti-spam
+    player.lastTapAt = now;
+
+    const direction = player.team === 'left' ? -1 : 1;
+    room.velocity += TOW_TAP_IMPULSE * direction;
+  }
+
   handleDisconnect(socket) {
     this.leaveRoom(socket);
   }
 
   // ===== INTERNE =====
-  _newPlayer(socket) {
+  _newPlayer(socket, room) {
+    if (room.gameType === 'tugofwar') {
+      const players = Array.from(room.players.values());
+      const leftCount = players.filter((p) => p.team === 'left').length;
+      const rightCount = players.filter((p) => p.team === 'right').length;
+      return {
+        socketId: socket.id,
+        userId: socket.userId,
+        username: socket.username,
+        team: leftCount <= rightCount ? 'left' : 'right',
+        lastTapAt: 0
+      };
+    }
     return {
       socketId: socket.id,
       userId: socket.userId,
@@ -168,12 +227,13 @@ class FriendRoomManager {
   _broadcastRoom(room) {
     this.io.to(`room-${room.code}`).emit('friend:room:update', {
       code: room.code,
+      gameType: room.gameType,
       hostSocketId: room.hostSocketId,
-      players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username }))
+      players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username, team: p.team }))
     });
   }
 
-  _tick(room) {
+  _tickRedLight(room) {
     if (room.status !== 'playing') return;
     const dt = TICK_MS / 1000;
 
@@ -232,10 +292,10 @@ class FriendRoomManager {
       }))
     });
 
-    if (winner || allDone || timeUp) this._endRoom(room);
+    if (winner || allDone || timeUp) this._endRoomRedLight(room);
   }
 
-  async _endRoom(room) {
+  async _endRoomRedLight(room) {
     if (room.status === 'ended') return;
     room.status = 'ended';
     if (room.interval) clearInterval(room.interval);
@@ -266,6 +326,64 @@ class FriendRoomManager {
         await user.save();
       } catch (err) {
         console.error('Erreur sauvegarde stats salon ami:', err.message);
+      }
+    }
+
+    this.rooms.delete(room.code);
+  }
+
+  // ===== TIR À LA CORDE : boucle de simulation du salon =====
+  _tickTugOfWar(room) {
+    if (room.status !== 'playing') return;
+    const dt = TICK_MS / 1000;
+
+    room.timeLeft -= dt;
+    room.velocity *= Math.exp(dt * TOW_FRICTION_LN60);
+    room.markerX += room.velocity * dt;
+    room.markerX = Math.max(TOW_LEFT_EDGE - 10, Math.min(TOW_RIGHT_EDGE + 10, room.markerX));
+
+    let winnerTeam = null;
+    if (room.markerX <= TOW_LEFT_EDGE) winnerTeam = 'left';
+    else if (room.markerX >= TOW_RIGHT_EDGE) winnerTeam = 'right';
+
+    const timeUp = room.timeLeft <= 0;
+    if (timeUp && !winnerTeam) {
+      if (room.markerX < TOW_CENTER) winnerTeam = 'left';
+      else if (room.markerX > TOW_CENTER) winnerTeam = 'right';
+    }
+
+    this.io.to(`room-${room.code}`).emit('tow:match:tick', {
+      markerX: room.markerX,
+      timeLeft: Math.max(0, room.timeLeft)
+    });
+
+    if (winnerTeam || timeUp) this._endRoomTugOfWar(room, winnerTeam);
+  }
+
+  async _endRoomTugOfWar(room, winnerTeam) {
+    if (room.status === 'ended') return;
+    room.status = 'ended';
+    if (room.interval) clearInterval(room.interval);
+    room.winnerTeam = winnerTeam;
+
+    const results = Array.from(room.players.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      team: p.team,
+      won: winnerTeam ? p.team === winnerTeam : false
+    }));
+
+    this.io.to(`room-${room.code}`).emit('tow:match:end', { winnerTeam, results });
+
+    for (const r of results) {
+      try {
+        const user = await User.findById(r.userId);
+        if (!user) continue;
+        user.stats.gamesPlayed += 1;
+        if (r.won) user.stats.wins += 1;
+        await user.save();
+      } catch (err) {
+        console.error('Erreur sauvegarde stats salon ami (tir à la corde):', err.message);
       }
     }
 

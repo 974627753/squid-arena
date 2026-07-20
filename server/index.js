@@ -54,11 +54,11 @@ io.on('connection', (socket) => {
   // --- Matchmaking "1,2,3 Soleil" en ligne (public) ---
   socket.on('redlight:queue:join', () => onlineRedLight.joinQueue(socket));
   socket.on('redlight:queue:leave', () => onlineRedLight.leaveQueue(socket));
-  socket.on('redlight:move', ({ matchId, isMoving }) => {
+  socket.on('redlight:move', ({ matchId, dx, dy }) => {
     if (typeof matchId === 'string' && matchId.startsWith('friend-')) {
-      friendRooms.setMoving(socket, matchId.replace('friend-', ''), isMoving);
+      friendRooms.setDirection(socket, matchId.replace('friend-', ''), dx, dy);
     } else {
-      onlineRedLight.setMoving(socket, matchId, isMoving);
+      onlineRedLight.setDirection(socket, matchId, dx, dy);
     }
   });
 

@@ -224,12 +224,14 @@ html, body {
   font-family: var(--font-display); font-weight: 700; letter-spacing: 1px; font-size: 15px;
 }
 
-#rl-canvas {
+#rl-canvas, #mp-rl-canvas {
   background: linear-gradient(180deg, #10141b 0%, #0c0f14 100%);
   border: 1px solid var(--line);
   border-radius: 12px;
   max-width: 100%;
+  height: auto;
   touch-action: none;
+  display: block;
 }
 
 .rl-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -244,7 +246,30 @@ html, body {
   transition: background .12s, transform .08s;
 }
 .btn-hold.pressed { background: var(--accent-jade); color: #06120c; transform: scale(0.97); }
-.rl-hint { color: var(--text-muted); font-size: 12px; }
+.rl-hint { color: var(--text-muted); font-size: 12px; text-align: center; }
+
+/* ===== JOYSTICK (déplacement libre 1,2,3 soleil multijoueur) ===== */
+.joystick-base {
+  position: relative;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: var(--bg-panel-raised);
+  border: 2px solid var(--accent-jade);
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+.joystick-stick {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 52px; height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: var(--accent-jade);
+  box-shadow: 0 0 14px var(--accent-jade);
+  transition: transform .04s linear;
+  pointer-events: none;
+}
 kbd {
   background: var(--bg-panel-raised); border: 1px solid var(--line); border-radius: 4px;
   padding: 1px 6px; font-size: 11px;

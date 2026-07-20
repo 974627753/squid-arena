@@ -1,6 +1,9 @@
 (function () {
   const FINISH_Y = 60;
   const START_Y = 440;
+  const ARENA_W = 900;
+  const START_RECT = { x: ARENA_W / 2 - 100, y: START_Y, width: 200, height: 50 };
+  const JOYSTICK_MAX_RADIUS = 45;
 
   const canvas = document.getElementById('mp-rl-canvas');
   const ctx = canvas.getContext('2d');
@@ -9,14 +12,15 @@
   const lightDot = document.getElementById('mp-light-dot');
   const lightLabel = document.getElementById('mp-light-label');
   const timeEl = document.getElementById('mp-rl-time');
-  const moveBtn = document.getElementById('mp-rl-move-btn');
   const queueStatusEl = document.getElementById('mp-queue-status');
   const queueCountEl = document.getElementById('mp-queue-count');
 
-  let currentMatchId = null;
-  let isMoving = false;
+  const joystickBase = document.getElementById('mp-joystick-base');
+  const joystickStick = document.getElementById('mp-joystick-stick');
 
-  // ===== ENTRER DANS LA FILE D'ATTENTE =====
+  let currentMatchId = null;
+  let currentDir = { dx: 0, dy: 0 };
+
   document.getElementById('btn-online-redlight').addEventListener('click', () => {
     if (!AppState.socket) connectSocket();
     queueStatusEl.textContent = 'Connexion en cours…';
@@ -30,7 +34,6 @@
     showScreen('screen-multi-select');
   });
 
-  // ===== BRANCHEMENT DES ÉVÉNEMENTS SOCKET (une seule fois le socket créé) =====
   function bindSocketEvents(socket) {
     socket.off('queue:status');
     socket.on('queue:status', ({ waiting, minPlayers }) => {
@@ -41,8 +44,7 @@
     socket.off('match:found');
     socket.on('match:found', ({ matchId }) => {
       currentMatchId = matchId;
-      isMoving = false;
-      moveBtn.classList.remove('pressed');
+      resetJoystick();
       showScreen('screen-mp-redlight');
     });
 
@@ -56,13 +58,11 @@
     socket.off('match:end');
     socket.on('match:end', ({ winnerId, results }) => {
       currentMatchId = null;
-      isMoving = false;
-      moveBtn.classList.remove('pressed');
+      resetJoystick();
       showMpResult(winnerId, results);
     });
   }
 
-  // On (re)branche les événements à chaque nouvelle connexion socket
   const originalConnectSocket = window.connectSocket;
   window.connectSocket = function () {
     const socket = originalConnectSocket();
@@ -81,7 +81,6 @@
     }
   }
 
-  // ===== RENDU CANVAS =====
   function draw(state) {
     ctx.clearRect(0, 0, W, H);
 
@@ -90,29 +89,32 @@
     ctx.setLineDash([6, 6]);
     ctx.beginPath();
     ctx.moveTo(0, FINISH_Y); ctx.lineTo(W, FINISH_Y);
-    ctx.moveTo(0, START_Y + 20); ctx.lineTo(W, START_Y + 20);
     ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.fillStyle = '#7c8794';
     ctx.font = '600 13px Rajdhani, sans-serif';
     ctx.fillText('ARRIVÉE', 12, FINISH_Y - 10);
-    ctx.fillText('DÉPART', 12, START_Y + 38);
 
-    const n = state.players.length;
-    const spacing = W / (n + 1);
+    ctx.strokeStyle = '#29ffa3';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(START_RECT.x, START_RECT.y, START_RECT.width, START_RECT.height);
+    ctx.setLineDash([]);
+    ctx.fillText('DÉPART', START_RECT.x, START_RECT.y + START_RECT.height + 18);
 
-    state.players.forEach((p, i) => {
-      const x = spacing * (i + 1);
+    const isCurrentlyMoving = currentDir.dx !== 0 || currentDir.dy !== 0;
+
+    state.players.forEach((p) => {
       const isMe = p.userId === AppState.user.id;
 
       let color = '#29ffa3';
       if (p.eliminated) color = '#3a4150';
       else if (p.finished) color = '#ffd23b';
-      else if (state.light === 'red' && isMe && isMoving) color = '#ff3b5c';
+      else if (state.light === 'red' && isMe && isCurrentlyMoving) color = '#ff3b5c';
 
       ctx.beginPath();
-      ctx.arc(x, p.y, 14, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
       ctx.fillStyle = color;
       if (!p.eliminated) {
         ctx.shadowColor = color;
@@ -124,12 +126,11 @@
       ctx.fillStyle = isMe ? '#eef1f3' : '#7c8794';
       ctx.font = `${isMe ? '700' : '500'} 11px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(p.username + (isMe ? ' (toi)' : ''), x, p.y - 22);
+      ctx.fillText(p.username + (isMe ? ' (toi)' : ''), p.x, p.y - 22);
       ctx.textAlign = 'left';
     });
   }
 
-  // ===== RÉSULTATS =====
   function showMpResult(winnerId, results) {
     const titleEl = document.getElementById('mp-result-title');
     const subEl = document.getElementById('mp-result-subtitle');
@@ -185,27 +186,85 @@
     document.getElementById('btn-online-redlight').click();
   });
 
-  // ===== CONTRÔLES =====
-  function setMoving(val) {
+  function sendDirection(dx, dy) {
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+    if (dx === currentDir.dx && dy === currentDir.dy) return;
+    currentDir = { dx, dy };
     if (!currentMatchId || !AppState.socket) return;
-    isMoving = val;
-    moveBtn.classList.toggle('pressed', val);
-    AppState.socket.emit('redlight:move', { matchId: currentMatchId, isMoving: val });
+    AppState.socket.emit('redlight:move', { matchId: currentMatchId, dx, dy });
   }
 
-  moveBtn.addEventListener('mousedown', () => setMoving(true));
-  moveBtn.addEventListener('mouseup', () => setMoving(false));
-  moveBtn.addEventListener('mouseleave', () => setMoving(false));
-  moveBtn.addEventListener('touchstart', (e) => { e.preventDefault(); setMoving(true); }, { passive: false });
-  moveBtn.addEventListener('touchend', (e) => { e.preventDefault(); setMoving(false); }, { passive: false });
+  function updateStickVisual(dx, dy) {
+    joystickStick.style.transform = `translate(${dx * JOYSTICK_MAX_RADIUS}px, ${dy * JOYSTICK_MAX_RADIUS}px)`;
+  }
+
+  function resetJoystick() {
+    currentDir = { dx: 0, dy: 0 };
+    updateStickVisual(0, 0);
+  }
+
+  let activePointerId = null;
+
+  function handlePointerMove(clientX, clientY) {
+    const rect = joystickBase.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = (clientX - cx) / JOYSTICK_MAX_RADIUS;
+    let dy = (clientY - cy) / JOYSTICK_MAX_RADIUS;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+    updateStickVisual(dx, dy);
+    sendDirection(dx, dy);
+  }
+
+  joystickBase.addEventListener('pointerdown', (e) => {
+    activePointerId = e.pointerId;
+    joystickBase.setPointerCapture(e.pointerId);
+    handlePointerMove(e.clientX, e.clientY);
+  });
+  joystickBase.addEventListener('pointermove', (e) => {
+    if (activePointerId !== e.pointerId) return;
+    handlePointerMove(e.clientX, e.clientY);
+  });
+  function releasePointer(e) {
+    if (activePointerId !== e.pointerId) return;
+    activePointerId = null;
+    updateStickVisual(0, 0);
+    sendDirection(0, 0);
+  }
+  joystickBase.addEventListener('pointerup', releasePointer);
+  joystickBase.addEventListener('pointercancel', releasePointer);
+  joystickBase.addEventListener('pointerleave', (e) => {
+    if (activePointerId === e.pointerId) releasePointer(e);
+  });
+
+  const keysDown = new Set();
+  const MOVE_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'];
+
+  function vectorFromKeys() {
+    let dx = 0, dy = 0;
+    if (keysDown.has('ArrowUp') || keysDown.has('KeyW')) dy -= 1;
+    if (keysDown.has('ArrowDown') || keysDown.has('KeyS')) dy += 1;
+    if (keysDown.has('ArrowLeft') || keysDown.has('KeyA')) dx -= 1;
+    if (keysDown.has('ArrowRight') || keysDown.has('KeyD')) dx += 1;
+    return { dx, dy };
+  }
 
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && document.getElementById('screen-mp-redlight').classList.contains('active')) {
-      e.preventDefault();
-      setMoving(true);
-    }
+    if (!MOVE_KEYS.includes(e.code)) return;
+    if (!document.getElementById('screen-mp-redlight').classList.contains('active')) return;
+    if (activePointerId !== null) return;
+    e.preventDefault();
+    keysDown.add(e.code);
+    const { dx, dy } = vectorFromKeys();
+    sendDirection(dx, dy);
   });
   document.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') setMoving(false);
+    if (!keysDown.has(e.code)) return;
+    keysDown.delete(e.code);
+    if (activePointerId !== null) return;
+    const { dx, dy } = vectorFromKeys();
+    sendDirection(dx, dy);
   });
 })();

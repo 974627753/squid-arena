@@ -3,13 +3,33 @@ const User = require('../models/User');
 // ===== CONSTANTES (identiques aux autres modes pour la cohérence) =====
 const FINISH_Y = 60;
 const START_Y = 440;
+const ARENA_WIDTH = 900;
+const ARENA_MARGIN = 30;
+const BOUND_MAX_Y = START_Y + 50;
 const MOVE_SPEED = 90;
 const GAME_DURATION = 60;
 const RED_LIGHT_GRACE_MS = 130;
 const TICK_MS = 100;
 const MAX_PLAYERS = 6;
 
+// Petit rectangle de départ (tous les joueurs y apparaissent, au centre de l'arène)
+const START_RECT = { x: ARENA_WIDTH / 2 - 100, y: START_Y, width: 200, height: 50 };
+const START_COLS = 3;
+
 function randRange(min, max) { return Math.random() * (max - min) + min; }
+
+function startPositionForIndex(i) {
+  const col = i % START_COLS;
+  const row = Math.floor(i / START_COLS);
+  const cellW = START_RECT.width / START_COLS;
+  const cellH = START_RECT.height / 2;
+  const jitterX = (Math.random() - 0.5) * (cellW * 0.5);
+  const jitterY = (Math.random() - 0.5) * (cellH * 0.5);
+  return {
+    x: START_RECT.x + cellW * col + cellW / 2 + jitterX,
+    y: START_RECT.y + cellH * row + cellH / 2 + jitterY
+  };
+}
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans caractères ambigus (0/O, 1/I...)
@@ -32,7 +52,7 @@ class FriendRoomManager {
       code,
       hostSocketId: socket.id,
       status: 'waiting', // waiting | playing | ended
-      players: new Map(), // socketId -> { socketId, userId, username, y, isMoving, eliminated, finished, finishTime }
+      players: new Map(), // socketId -> { socketId, userId, username, x, y, dx, dy, eliminated, finished, finishTime }
       light: 'green',
       lightTimer: 0,
       lightDuration: randRange(1.4, 3.2),
@@ -97,6 +117,11 @@ class FriendRoomManager {
     if (room.status !== 'waiting') return;
 
     room.status = 'playing';
+    Array.from(room.players.values()).forEach((player, i) => {
+      const pos = startPositionForIndex(i);
+      player.x = pos.x;
+      player.y = pos.y;
+    });
     this.io.to(`room-${code}`).emit('match:found', {
       matchId: `friend-${code}`,
       players: Array.from(room.players.values()).map((p) => ({ userId: p.userId, username: p.username }))
@@ -105,12 +130,19 @@ class FriendRoomManager {
     room.interval = setInterval(() => this._tick(room), TICK_MS);
   }
 
-  setMoving(socket, code, isMoving) {
+  setDirection(socket, code, dx, dy) {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'playing') return;
     const player = room.players.get(socket.id);
     if (!player) return;
-    player.isMoving = isMoving;
+
+    dx = typeof dx === 'number' && isFinite(dx) ? dx : 0;
+    dy = typeof dy === 'number' && isFinite(dy) ? dy : 0;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+
+    player.dx = dx;
+    player.dy = dy;
   }
 
   handleDisconnect(socket) {
@@ -123,8 +155,10 @@ class FriendRoomManager {
       socketId: socket.id,
       userId: socket.userId,
       username: socket.username,
+      x: START_RECT.x + START_RECT.width / 2,
       y: START_Y,
-      isMoving: false,
+      dx: 0,
+      dy: 0,
       eliminated: false,
       finished: false,
       finishTime: null
@@ -156,11 +190,18 @@ class FriendRoomManager {
     room.players.forEach((player) => {
       if (player.eliminated || player.finished) return;
 
-      if (player.isMoving) player.y -= MOVE_SPEED * dt;
+      const isMoving = Math.abs(player.dx) > 0.01 || Math.abs(player.dy) > 0.01;
+
+      if (isMoving) {
+        player.x += MOVE_SPEED * dt * player.dx;
+        player.y += MOVE_SPEED * dt * player.dy;
+        player.x = Math.min(Math.max(player.x, ARENA_MARGIN), ARENA_WIDTH - ARENA_MARGIN);
+        player.y = Math.min(Math.max(player.y, FINISH_Y), BOUND_MAX_Y);
+      }
 
       if (
         room.light === 'red' &&
-        player.isMoving &&
+        isMoving &&
         room.redLightSince !== null &&
         Date.now() - room.redLightSince > RED_LIGHT_GRACE_MS
       ) {
@@ -184,6 +225,7 @@ class FriendRoomManager {
       players: Array.from(room.players.values()).map((p) => ({
         userId: p.userId,
         username: p.username,
+        x: p.x,
         y: p.y,
         eliminated: p.eliminated,
         finished: p.finished

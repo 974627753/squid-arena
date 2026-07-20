@@ -3,6 +3,9 @@ const User = require('../models/User');
 // ===== CONSTANTES (identiques à la version solo pour la cohérence) =====
 const FINISH_Y = 60;
 const START_Y = 440;
+const ARENA_WIDTH = 900;
+const ARENA_MARGIN = 30; // les joueurs ne peuvent pas sortir du cadre
+const BOUND_MAX_Y = START_Y + 50;
 const MOVE_SPEED = 90; // pixels par seconde
 const GAME_DURATION = 60; // secondes
 const RED_LIGHT_GRACE_MS = 130;
@@ -12,7 +15,26 @@ const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 6;
 const QUEUE_TIMEOUT_MS = 15000; // démarre avec ce qu'il y a si le minimum est atteint
 
+// Petit rectangle de départ (tous les joueurs y apparaissent, au centre de l'arène)
+const START_RECT = { x: ARENA_WIDTH / 2 - 100, y: START_Y, width: 200, height: 50 };
+const START_COLS = 3;
+
 function randRange(min, max) { return Math.random() * (max - min) + min; }
+
+// Place le joueur i dans une grille répartie sur le petit rectangle de départ,
+// avec un peu d'aléatoire pour que ce ne soit pas parfaitement aligné.
+function startPositionForIndex(i) {
+  const col = i % START_COLS;
+  const row = Math.floor(i / START_COLS);
+  const cellW = START_RECT.width / START_COLS;
+  const cellH = START_RECT.height / 2;
+  const jitterX = (Math.random() - 0.5) * (cellW * 0.5);
+  const jitterY = (Math.random() - 0.5) * (cellH * 0.5);
+  return {
+    x: START_RECT.x + cellW * col + cellW / 2 + jitterX,
+    y: START_RECT.y + cellH * row + cellH / 2 + jitterY
+  };
+}
 
 class OnlineRedLightManager {
   constructor(io) {
@@ -67,15 +89,18 @@ class OnlineRedLightManager {
     const matchId = `redlight-${Date.now()}-${this.matchCounter}`;
 
     const players = new Map();
-    participants.forEach((p) => {
+    participants.forEach((p, i) => {
       const socket = this.io.sockets.sockets.get(p.socketId);
       if (socket) socket.join(matchId);
+      const pos = startPositionForIndex(i);
       players.set(p.socketId, {
         socketId: p.socketId,
         userId: p.userId,
         username: p.username,
-        y: START_Y,
-        isMoving: false,
+        x: pos.x,
+        y: pos.y,
+        dx: 0,
+        dy: 0,
         eliminated: false,
         finished: false,
         finishTime: null
@@ -129,13 +154,18 @@ class OnlineRedLightManager {
     match.players.forEach((player) => {
       if (player.eliminated || player.finished) return;
 
-      if (player.isMoving) {
-        player.y -= MOVE_SPEED * dt;
+      const isMoving = Math.abs(player.dx) > 0.01 || Math.abs(player.dy) > 0.01;
+
+      if (isMoving) {
+        player.x += MOVE_SPEED * dt * player.dx;
+        player.y += MOVE_SPEED * dt * player.dy;
+        player.x = Math.min(Math.max(player.x, ARENA_MARGIN), ARENA_WIDTH - ARENA_MARGIN);
+        player.y = Math.min(Math.max(player.y, FINISH_Y), BOUND_MAX_Y);
       }
 
       if (
         match.light === 'red' &&
-        player.isMoving &&
+        isMoving &&
         match.redLightSince !== null &&
         Date.now() - match.redLightSince > RED_LIGHT_GRACE_MS
       ) {
@@ -159,6 +189,7 @@ class OnlineRedLightManager {
       players: Array.from(match.players.values()).map((p) => ({
         userId: p.userId,
         username: p.username,
+        x: p.x,
         y: p.y,
         eliminated: p.eliminated,
         finished: p.finished
@@ -215,12 +246,19 @@ class OnlineRedLightManager {
   }
 
   // ===== ENTRÉES DU JOUEUR =====
-  setMoving(socket, matchId, isMoving) {
+  setDirection(socket, matchId, dx, dy) {
     const match = this.matches.get(matchId);
     if (!match) return;
     const player = match.players.get(socket.id);
     if (!player) return;
-    player.isMoving = isMoving;
+
+    dx = typeof dx === 'number' && isFinite(dx) ? dx : 0;
+    dy = typeof dy === 'number' && isFinite(dy) ? dy : 0;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1) { dx /= mag; dy /= mag; }
+
+    player.dx = dx;
+    player.dy = dy;
   }
 
   handleDisconnect(socket) {

@@ -124,8 +124,13 @@
     </button>
     <button class="menu-tile tile-available" id="btn-online-redlight">
       <span class="tile-shape shape-triangle"></span>
-      <h2>En ligne</h2>
+      <h2>1, 2, 3 Soleil — En ligne</h2>
       <p>Affronte d'autres joueurs connectés en ce moment sur "1, 2, 3 Soleil".</p>
+    </button>
+    <button class="menu-tile tile-available" id="btn-online-tugofwar">
+      <span class="tile-shape shape-circle"></span>
+      <h2>Tir à la corde — En ligne</h2>
+      <p>Rejoins une équipe et tire la corde avec d'autres joueurs, en temps réel.</p>
     </button>
   </div>
 </section>
@@ -196,6 +201,53 @@
     <p id="mp-result-subtitle"></p>
     <div id="mp-result-list" class="mp-result-list"></div>
     <button class="btn-primary" id="mp-result-retry">Rejouer</button>
+    <button class="btn-ghost" data-back="screen-menu">Retour au menu</button>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN RECHERCHE DE PARTIE : TIR À LA CORDE EN LIGNE ===== -->
+<section id="screen-tow-queue" class="screen">
+  <div class="result-card">
+    <h1>Recherche de joueurs…</h1>
+    <p id="tow-queue-status">Connexion en cours…</p>
+    <div class="rl-light-indicator" style="margin: 0 auto 24px;">
+      <span class="light-dot pulse-search"></span>
+      <span class="light-label" id="tow-queue-count">0 joueur en attente</span>
+    </div>
+    <button class="btn-ghost" id="tow-queue-cancel">Annuler la recherche</button>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN JEU : TIR À LA CORDE MULTIJOUEUR ===== -->
+<section id="screen-mp-tugofwar" class="screen">
+  <header class="topbar">
+    <span></span>
+    <div class="rl-timer">Temps : <span id="tow-mp-time">30.0</span>s</div>
+  </header>
+
+  <div class="rl-arena">
+    <div class="tow-teams-bar">
+      <span class="tow-team-badge is-left" id="tow-team-left">Équipe bleue</span>
+      <span class="tow-team-badge is-right" id="tow-team-right">Équipe orange</span>
+    </div>
+    <p class="tow-my-team" id="tow-my-team"></p>
+
+    <div id="mp-tow-scene" class="rl-scene-3d" aria-label="Arène 3D du tir à la corde"></div>
+
+    <div class="rl-controls">
+      <button id="tow-tap-btn" class="btn-hold">TAPE VITE POUR TIRER</button>
+      <p class="rl-hint">(ou martèle la barre <kbd>ESPACE</kbd> — chaque tape aide ton équipe)</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ÉCRAN FIN DE PARTIE : TIR À LA CORDE MULTIJOUEUR ===== -->
+<section id="screen-tow-result" class="screen">
+  <div class="result-card">
+    <h1 id="tow-result-title">—</h1>
+    <p id="tow-result-subtitle"></p>
+    <div id="tow-result-list" class="mp-result-list"></div>
+    <button class="btn-primary" id="tow-result-retry">Rejouer</button>
     <button class="btn-ghost" data-back="screen-menu">Retour au menu</button>
   </div>
 </section>
@@ -299,7 +351,9 @@
 <script src="js/game-tugofwar.js"></script>
 <script src="js/game-marble.js"></script>
 <script src="js/arena-3d.js"></script>
+<script src="js/tugofwar-3d.js"></script>
 <script src="js/multiplayer-redlight.js"></script>
+<script src="js/multiplayer-tugofwar.js"></script>
 <script src="js/friend-room.js"></script>
 <script src="js/friends.js"></script>
 </body>

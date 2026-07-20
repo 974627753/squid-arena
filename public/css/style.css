@@ -289,6 +289,25 @@ html, body {
 .mp-view-toggle:hover { border-color: var(--accent-jade); }
 .mp-view-toggle:active { transform: scale(0.96); }
 
+/* ===== TIR À LA CORDE MULTIJOUEUR : badges d'équipe ===== */
+.tow-teams-bar {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+.tow-team-badge {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: .5px; font-size: 13px;
+  padding: 7px 16px; border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+}
+.tow-team-badge.is-left { color: #3fb6ff; border-color: #3fb6ff; }
+.tow-team-badge.is-right { color: #ff8a3d; border-color: #ff8a3d; }
+.tow-my-team {
+  text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 13px;
+  letter-spacing: .5px; margin-top: -8px;
+}
+.tow-my-team.is-left { color: #3fb6ff; }
+.tow-my-team.is-right { color: #ff8a3d; }
+
 .rl-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .btn-hold {
   user-select: none;

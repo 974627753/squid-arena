@@ -11,6 +11,7 @@ const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
 const friendsRoutes = require('./routes/friends');
 const OnlineRedLightManager = require('./game/onlineRedLight');
+const OnlineTugOfWarManager = require('./game/onlineTugOfWar');
 const FriendRoomManager = require('./game/friendRooms');
 
 const app = express();
@@ -35,6 +36,7 @@ app.get('/api/health', (req, res) => {
 
 // --- Socket.io : authentification puis dispatch vers les modules de jeu ---
 const onlineRedLight = new OnlineRedLightManager(io);
+const onlineTugOfWar = new OnlineTugOfWarManager(io);
 const friendRooms = new FriendRoomManager(io);
 
 io.use((socket, next) => {
@@ -68,9 +70,15 @@ io.on('connection', (socket) => {
   socket.on('friend:room:leave', () => friendRooms.leaveRoom(socket));
   socket.on('friend:room:start', ({ code }) => friendRooms.startRoom(socket, (code || '').toUpperCase()));
 
+  // --- "Tir à la corde" en ligne (public, équipes variables) ---
+  socket.on('tow:queue:join', () => onlineTugOfWar.joinQueue(socket));
+  socket.on('tow:queue:leave', () => onlineTugOfWar.leaveQueue(socket));
+  socket.on('tow:tap', ({ matchId }) => onlineTugOfWar.tap(socket, matchId));
+
   socket.on('disconnect', () => {
     console.log(`Socket déconnecté: ${socket.username} (${socket.id})`);
     onlineRedLight.handleDisconnect(socket);
+    onlineTugOfWar.handleDisconnect(socket);
     friendRooms.handleDisconnect(socket);
   });
 });

@@ -224,7 +224,7 @@ html, body {
   font-family: var(--font-display); font-weight: 700; letter-spacing: 1px; font-size: 15px;
 }
 
-#rl-canvas, #mp-rl-canvas {
+#rl-canvas {
   background: linear-gradient(180deg, #10141b 0%, #0c0f14 100%);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -233,6 +233,41 @@ html, body {
   touch-action: none;
   display: block;
 }
+
+.rl-scene-3d {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #171d2b 0%, #0a0d12 65%);
+  touch-action: none;
+}
+.rl-scene-3d canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.mp-tag-layer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.mp-player-tag-3d {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(10, 13, 18, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  backdrop-filter: blur(2px);
+}
+.mp-player-tag-3d.is-me { color: var(--text-main); border-color: #3fb6ff; }
+.mp-player-tag-3d.is-finished { color: #ffd23b; border-color: #ffd23b; }
+.mp-player-tag-3d.is-eliminated { color: var(--text-muted); border-color: var(--line); opacity: 0.55; }
 
 .rl-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .btn-hold {

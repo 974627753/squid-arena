@@ -1,13 +1,8 @@
 (function () {
-  const FINISH_Y = 60;
-  const START_Y = 440;
-  const ARENA_W = 900;
-  const START_RECT = { x: ARENA_W / 2 - 100, y: START_Y, width: 200, height: 50 };
   const JOYSTICK_MAX_RADIUS = 45;
 
-  const canvas = document.getElementById('mp-rl-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const sceneContainer = document.getElementById('mp-rl-scene');
+  let arena = null;
 
   const lightDot = document.getElementById('mp-light-dot');
   const lightLabel = document.getElementById('mp-light-label');
@@ -20,6 +15,11 @@
 
   let currentMatchId = null;
   let currentDir = { dx: 0, dy: 0 };
+
+  function getArena() {
+    if (!arena) arena = new Arena3D(sceneContainer);
+    return arena;
+  }
 
   document.getElementById('btn-online-redlight').addEventListener('click', () => {
     if (!AppState.socket) connectSocket();
@@ -46,13 +46,15 @@
       currentMatchId = matchId;
       resetJoystick();
       showScreen('screen-mp-redlight');
+      // Le conteneur devient visible seulement maintenant : on (re)dimensionne la scène 3D.
+      requestAnimationFrame(() => getArena()._onResize());
     });
 
     socket.off('match:tick');
     socket.on('match:tick', (state) => {
       timeEl.textContent = state.timeLeft.toFixed(1);
       updateLightUI(state.light);
-      draw(state);
+      getArena().update(state, AppState.user.id);
     });
 
     socket.off('match:end');
@@ -79,56 +81,6 @@
       lightDot.classList.add('red');
       lightLabel.textContent = 'FEU ROUGE';
     }
-  }
-
-  function draw(state) {
-    ctx.clearRect(0, 0, W, H);
-
-    ctx.strokeStyle = '#262c37';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(0, FINISH_Y); ctx.lineTo(W, FINISH_Y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#7c8794';
-    ctx.font = '600 13px Rajdhani, sans-serif';
-    ctx.fillText('ARRIVÉE', 12, FINISH_Y - 10);
-
-    ctx.strokeStyle = '#29ffa3';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(START_RECT.x, START_RECT.y, START_RECT.width, START_RECT.height);
-    ctx.setLineDash([]);
-    ctx.fillText('DÉPART', START_RECT.x, START_RECT.y + START_RECT.height + 18);
-
-    const isCurrentlyMoving = currentDir.dx !== 0 || currentDir.dy !== 0;
-
-    state.players.forEach((p) => {
-      const isMe = p.userId === AppState.user.id;
-
-      let color = '#29ffa3';
-      if (p.eliminated) color = '#3a4150';
-      else if (p.finished) color = '#ffd23b';
-      else if (state.light === 'red' && isMe && isCurrentlyMoving) color = '#ff3b5c';
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      if (!p.eliminated) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
-      }
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.fillStyle = isMe ? '#eef1f3' : '#7c8794';
-      ctx.font = `${isMe ? '700' : '500'} 11px Rajdhani, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(p.username + (isMe ? ' (toi)' : ''), p.x, p.y - 22);
-      ctx.textAlign = 'left';
-    });
   }
 
   function showMpResult(winnerId, results) {
